@@ -112,3 +112,42 @@
 - **Option B (Caddy TLS)** is the robust ingress. All 18 apps verified 200/30x.
 - **Vaultwarden URLs in Bitwarden**: should point to
   `https://homelab.taild32764.ts.net/vaultwarden` (Task 1.4 / Vaultwarden URL audit).
+
+---
+
+## 6. CasaOS App Registration (Task 1.4 — IN PROGRESS, needs decision)
+
+### Current state
+- All 18 apps are **accessible via the domain** (ingress works).
+- CasaOS shows the ARR stack + friends as **"legacy"** because their running
+  containers lack the `icon` label and aren't registered in CasaOS's app DB
+  (they were recreated via `docker run`, bypassing CasaOS registration).
+- qbittorrent shows properly because its container has the `icon` label.
+
+### The architecture conflict
+- CasaOS installs apps on the **`bridge`** network (default).
+- The ingress (Caddy) currently reaches apps by **container name**, which requires
+  them to be on the **`web_proxy`** network.
+- If apps are re-imported via CasaOS (UI), they go back to `bridge` → Caddy can't
+  resolve them by name → 502s return. **This is the trap.**
+
+### Decision needed (recommend Option B)
+- **Option A — keep web_proxy + container names** (current, working): apps stay on
+  web_proxy, Caddy uses container names. CasaOS still shows "legacy" (cosmetic only;
+  apps fully work via domain). Lowest risk.
+- **Option B (RECOMMENDED) — Caddy uses `host.docker.internal:<host_port>`**:
+  network-agnostic. Apps can stay CasaOS-managed on `bridge`; Caddy reaches them via
+  host-published ports. Enables clean CasaOS re-import (proper icons + clickable URLs)
+  without breaking ingress. Requires mapping correct HOST ports:
+  - Most ARR/media: host port = container port (radarr 7878, sonarr 8989, etc.)
+  - overseerr: host **5555** (container 5055)
+  - seerr: host **5056** (container 5055)
+  - qbittorrent: host **8181** (via gluetun)
+  - homeassistant: host **8123** (host network)
+  - esphome: host **6052** (host network)
+  - vaultwarden: needs port 80 published on host, OR keep on web_proxy + container name
+  - syncthing: host 8384
+
+### Vaultwarden URLs (user's explicit ask)
+- Each app's Vaultwarden entry should use `https://homelab.taild32764.ts.net/<app>`
+  (not LAN IP). Requires Vaultwarden API token (in user's Vault) to audit/update.
