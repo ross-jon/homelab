@@ -337,6 +337,7 @@ homelab-architecture/
 ├── 04-SECURITY.md (security model)
 ├── 05-IMPLEMENTATION.md (implementation details)
 ├── 06-OPERATIONS.md (runbooks, troubleshooting)
+├── 07-IMPLEMENTATION-LOG-CASAOS-REIMPORT.md (Phase 2: CasaOS app re-import)
 ├── diagrams/
 │   ├── network-topology.png
 │   ├── routing-flow.png
