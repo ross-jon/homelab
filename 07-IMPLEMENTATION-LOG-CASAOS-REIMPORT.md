@@ -49,6 +49,38 @@ delete.
   `casaos-app-management` skill is present in this environment to supply the exact
   re-import call.
 
+## KEY FINDING 2026-07-28 (later) — icon label is the missing piece
+
+The orphaned apps are not just unregistered in the store — their **running containers
+physically lack the `icon` label** that managed apps carry. Verified live:
+
+- `gluetun` container labels include `"icon": "https://cdn.jsdelivr.net/…/qBittorrent/icon.svg"`
+  → this is the URL CasaOS renders for the dashboard icon.
+- `radarr`/`sonarr`/`lidarr` containers have **NO `icon` key** — only standard OCI/image
+  labels (`org.opencontainers.image.*`) and compose labels. CasaOS has nothing to display.
+
+**Mechanism:** CasaOS's *own* App Store install flow does two things plain `docker compose up`
+does not:
+1. Stamps an `icon` runtime label onto the container.
+2. Registers the app in CasaOS's internal store (→ "managed", not "legacy").
+
+The \*arr/hermes/jellyfin/vaultwarden were recreated on **2026-07-27 19:02** via a direct
+`docker compose up` (to fix the IPv6 dead-end). Plain docker **ignores CasaOS's `x-casaos`
+compose extension**, so it never stamped the `icon` label and never re-registered the app.
+Their compose files still live in `/var/lib/casaos/apps/<app>/` (so they were originally
+CasaOS apps) but now run "raw". gluetun/qbittorrent (07-24, CasaOS-installed) keep both the
+icon label and store registration → managed + icon.
+
+**Why the file-edit was doubly insufficient:**
+1. `app_order.json` is a cache (overwritten from the store on restart) — additions vanish.
+2. Even if persisted, the running containers are **missing the `icon` label**, so CasaOS
+   still could not render a proper icon. Only CasaOS's install/re-import flow (UI button or
+   `/v1/apps/install` API) both stamps the label AND writes the store entry.
+
+**Lesson for future work:** never recreate a CasaOS-managed app with raw `docker compose up`
+to "fix" something (e.g. IPv6) — it silently un-registers the app and strips its icon label.
+Use CasaOS's own recreate/redeploy, or re-import afterward.
+
 ## Action taken (file-edit re-import)
 
 - Mounted host `/var/lib/casaos` via the docker volume from the sandbox (the sandbox has
