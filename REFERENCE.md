@@ -99,6 +99,13 @@
 | 2026-07-27 | CasaOS metadata (1.4) | ⏳ | Pending — icons + web URLs in CasaOS |
 | 2026-07-27 | Network membership (1.5) | ⚠️ | kavita/navidrome/seerr added to web_proxy; verify all |
 | 2026-07-27 | Cert renewal | ⚠️ | Script written; needs HOST cron scheduling |
+| 2026-07-27 | Circadian lighting engine | ✅ | `light_sync.py` deployed to HA; dual-light, equinox-anchored; look-vs-power separation wired |
+| 2026-07-27 | Context tool live HA snapshot | ✅ | End-to-end: snapshot → validate → export → commit on real HA data (21 domains, 2 automations) |
+| 2026-07-27 | Prowlarr→*arr sync fix | ✅ | Root cause: stale bridge IPs + missing urlBase + IPv6 dead-end. All 4 apps recreated with --sysctl IPv6 disable; sync URLs corrected |
+| 2026-07-27 | *arr Batch 2 recreate | ✅ | sonarr/radarr/lidarr recreated with IPv6 sysctl; indexers retained |
+| 2026-07-27 | Readarr indexer category mismatch | ⚠️ | Readarr has 0 book indexers — general indexers don't return book cats. Pending: user needs book indexers |
+| 2026-07-27 | Circadian automation entity_id drift | ⚠️ | Live entity_id != YAML `id` due to UI edit. Option A chosen (YAML as truth) but not yet executed (blocked by HA modify approval) |
+| 2026-07-27 | HA circadian live test | ⚠️ | Approved but not yet run. Ties into entity_id reconciliation |
 
 ---
 
@@ -112,6 +119,36 @@
 - **Option B (Caddy TLS)** is the robust ingress. All 18 apps verified 200/30x.
 - **Vaultwarden URLs in Bitwarden**: should point to
   `https://homelab.taild32764.ts.net/vaultwarden` (Task 1.4 / Vaultwarden URL audit).
+- **Servarr IPv6 dead-end**: .NET prefers AAAA DNS; Docker bridge has no IPv6 route.
+  Fix via `--sysctl net.ipv6.conf.all.disable_ipv6=1` + `default=1` on container
+  recreate. Affects ALL *arr apps (each makes direct .NET outbound), not just Prowlarr.
+- **Prowlarr `fields[]` must be set, not top-level keys**: `baseUrl` and `apiKey`
+  and `prowlarrUrl` must live inside the `fields[]` array for a `PUT /api/v1/applications`
+  to persist. Sending them as flat keys is silently ignored.
+- **Prowlarr `apiKey` cannot be sent as `********`** — the masked value from a partial
+  export **wipes** the real key when PUT. Always read the real key from
+  `/config/config.xml` before updating.
+- **`urlBase` MUST be in every sync URL**: `baseUrl` should be
+  `http://readarr:8787/readarr` NOT `http://readarr:8787`. Missing it causes sync to
+  fail (301 redirect loop / 401).
+- **Readarr 0 indexers is EXPECTED** for general indexers — they don't return book
+  categories. The fix is adding book-specific indexers to Prowlarr, not a config bug.
+- **linuxserver *arr images use `catatonit`**: entrypoint is
+  `/usr/bin/catatonit -- /entrypoint.sh`. Recreating with bare `--entrypoint /usr/bin/catatonit`
+  (no program arg) crash-loops with "missing program name". Omit `--entrypoint` entirely
+  when faithfully recreating.
+- **Context tool `validate` works**: on its first live run it caught real
+  automation entity_id drift that would have caused silent task failure. Run it before
+  every task injection.
+- **CasaOS re-import vs Caddy routing**: re-importing apps via CasaOS UI moves them to
+  `bridge` network, breaking Caddy's container-name routing (502s). Two options:
+  Option A (keep web_proxy, accept "legacy" display) or Option B (switch Caddy to
+  `host.docker.internal:<host_port>` for network-agnostic routing). **Pending user decision.**
+- **Circadian automation entity_id reconciliation**: YAML as source of truth (Option A)
+  chosen but not executed — needs HA API modify approval (delete storage automation +
+  reload). **Pending user go-ahead.**
+- **HA circadian live test**: script ready, approved, not yet run. Ties into the
+  automation entity_id cleanup (run after reconcile to avoid targeting the wrong entity).
 
 ---
 
