@@ -1,11 +1,30 @@
 # Phase 2: CasaOS App Re-import (Legacy → Managed)
 
 **Date:** 2026-07-28
-**Status:** Action taken; verification pending (UI refresh / `systemctl restart casaos`)
+**Status:** FILE-EDIT FAILED — `app_order.json` is a cache, overwritten by CasaOS on restart. Use CasaOS **UI re-import** (see UPDATE) or fix gateway ECDSA auth to drive via API.
 **Goal:** Register the ~8 "BigBearCasaOS (legacy)" orphaned apps as managed in the
 CasaOS dashboard so the dashboard is clean and Prowlarr→\*arr sync stays healthy.
 
 ---
+
+## UPDATE 2026-07-28 — file-edit approach FAILED
+
+Editing `/var/lib/casaos/1/app_order.json` did **not** register the apps. After a
+CasaOS restart the file was **overwritten back to 15 entries** (the 8 additions
+dropped) — proving `app_order.json` is a **cache written by CasaOS from its internal
+app store, NOT the registration source**. Editing it is futile; CasaOS rebuilds it from
+its real state on every restart.
+
+**Reliable re-import paths:**
+1. **CasaOS UI re-import** (recommended) — open CasaOS; the orphaned apps surface a
+   re-import / "Import" control; click it per app. ~2 min, no risk. This writes to the
+   real internal store.
+2. **Fix gateway ECDSA auth** so the `/v1/*` import API is callable. The gateway rejects
+   even valid login JWTs with 401 (key mismatch between gateway and casaos service).
+   Deep/risky — only if UI re-import is undesirable.
+
+The `app_order.json.bak.2026-07-28` backup is now stale (live file reverted); safe to
+delete.
 
 ## Root cause (discovered)
 
