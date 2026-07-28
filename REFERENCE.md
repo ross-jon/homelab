@@ -96,7 +96,8 @@
 | 2026-07-27 | Phase 1.1 Backup | ✅ | All compose files, container/network state backed up |
 | 2026-07-27 | Phase 1.2 Rebuild Caddy | ✅ | New Caddyfile, all 18 routes verified |
 | 2026-07-27 | Phase 1.3 Tailscale integration | ✅ | Option B: Caddy TLS, tailscale serve removed |
-| 2026-07-27 | CasaOS re-import — Phase 1 Caddy decouple | ✅ | Option B Caddy half done: 16/18 apps route via `host.docker.internal:<host_port>` (all but vaultwarden + overseerr). All 18 routes verified green post-reload. |
+| 2026-07-27 | CasaOS re-import — Phase 1 Caddy decouple | ✅ | 16/18 apps on `host.docker.internal`; vaultwarden (unpub) + overseerr (port-misconfig, being deleted by user) sole exceptions. External TLS verified working by user post-change. All 18 routes green. |
+| 2026-07-27 | CasaOS re-import — Phase 2 UI re-import | ⏳ | Re-import apps via CasaOS for proper icons + clickable URLs; reconnect `web_proxy` for *arr name resolution. overseerr excluded (user deleting). |
 | 2026-07-27 | CasaOS metadata (1.4) — Phase 2 re-import | ⏳ | UI re-import pending user CasaOS access; 2 exceptions (vaultwarden unpub, overseerr port-map) to handle |
 | 2026-07-27 | Network membership (1.5) | ⚠️ | kavita/navidrome/seerr added to web_proxy; verify all |
 | 2026-07-27 | Cert renewal | ⚠️ | Script written; needs HOST cron scheduling |
@@ -168,10 +169,10 @@
 - CasaOS installs apps on the **`bridge`** network (default).
 - Caddy now reaches 16/18 apps via **`host.docker.internal:<host_port>`** (network-agnostic),
   NOT container name — so re-importing those to `bridge` no longer breaks ingress.
-- **Remaining trap (2 apps)**: `vaultwarden` (port 80 not host-published) and
-  `overseerr` (host port `5555→5555` but app listens on 5055) still use container-name routing.
-  After re-import, `docker network connect web_proxy <app>` must be run so Prowlarr→*arr
-  name resolution (and Caddy for those 2) keeps working.
+- **Remaining exception (1 app)**: `vaultwarden` (port 80 not host-published) still uses
+  container-name routing. `overseerr` is being deleted by the user (its Caddy route blocks removed).
+  After re-import of each app, run `docker network connect web_proxy <app>` so Prowlarr→*arr
+  name resolution keeps working (Caddy for the 16 host.docker.internal apps does NOT need this).
 
 ### Decision (Option B chosen — Phase 1 executed 2026-07-27)
 - **Phase 1 ✅**: Caddy rewritten to `host.docker.internal:<host_port>` for 16/18 apps.
@@ -187,9 +188,7 @@
   - qbittorrent: host **8181** (via gluetun) — already on host.docker.internal
   - homeassistant: host **8123** / esphome: host **6052** / syncthing: host **8384** — already on host.docker.internal
   - **vaultwarden**: port 80 NOT host-published → stays container-name `vaultwarden:80` (cosmetic legacy in CasaOS)
-  - **overseerr**: host port published `5555→5555` but app listens on **5055** → `host.docker.internal:5555`
-    returns 000. Stays container-name `overseerr:5055` until its port map is fixed
-    (`-p 5555:5055`). Phase 2 should fix this to fully decouple.
+  - **overseerr**: being DELETED by user — excluded from re-import; its Caddy route blocks removed.
 
 ### Vaultwarden URLs (user's explicit ask)
 - Each app's Vaultwarden entry should use `https://homelab.taild32764.ts.net/<app>`
