@@ -96,7 +96,8 @@
 | 2026-07-27 | Phase 1.1 Backup | ✅ | All compose files, container/network state backed up |
 | 2026-07-27 | Phase 1.2 Rebuild Caddy | ✅ | New Caddyfile, all 18 routes verified |
 | 2026-07-27 | Phase 1.3 Tailscale integration | ✅ | Option B: Caddy TLS, tailscale serve removed |
-| 2026-07-27 | CasaOS metadata (1.4) | ⏳ | Pending — icons + web URLs in CasaOS |
+| 2026-07-27 | CasaOS re-import — Phase 1 Caddy decouple | ✅ | Option B Caddy half done: 16/18 apps route via `host.docker.internal:<host_port>` (all but vaultwarden + overseerr). All 18 routes verified green post-reload. |
+| 2026-07-27 | CasaOS metadata (1.4) — Phase 2 re-import | ⏳ | UI re-import pending user CasaOS access; 2 exceptions (vaultwarden unpub, overseerr port-map) to handle |
 | 2026-07-27 | Network membership (1.5) | ⚠️ | kavita/navidrome/seerr added to web_proxy; verify all |
 | 2026-07-27 | Cert renewal | ⚠️ | Script written; needs HOST cron scheduling |
 | 2026-07-27 | Circadian lighting engine | ✅ | `light_sync.py` deployed to HA; dual-light, equinox-anchored; look-vs-power separation wired |
@@ -140,10 +141,12 @@
 - **Context tool `validate` works**: on its first live run it caught real
   automation entity_id drift that would have caused silent task failure. Run it before
   every task injection.
-- **CasaOS re-import vs Caddy routing**: re-importing apps via CasaOS UI moves them to
-  `bridge` network, breaking Caddy's container-name routing (502s). Two options:
-  Option A (keep web_proxy, accept "legacy" display) or Option B (switch Caddy to
-  `host.docker.internal:<host_port>` for network-agnostic routing). **Pending user decision.**
+- **CasaOS re-import vs Caddy routing (Phase 1 DONE)**: re-importing apps via CasaOS UI moves them to
+  `bridge` network. Caddy now uses `host.docker.internal:<host_port>` for 16/18 apps (network-agnostic),
+  so re-importing those 16 will NOT break ingress. Remaining exceptions still on container-name:
+  `vaultwarden` (port 80 not host-published) and `overseerr` (host port published `5555→5555` but app
+  listens on 5055 — needs port-map fix before it can be decoupled). After re-import, reconnect
+  `web_proxy` so Prowlarr→*arr name resolution keeps working.
 - **Circadian automation entity_id reconciliation**: YAML as source of truth (Option A)
   chosen but not executed — needs HA API modify approval (delete storage automation +
   reload). **Pending user go-ahead.**
@@ -152,7 +155,7 @@
 
 ---
 
-## 6. CasaOS App Registration (Task 1.4 — IN PROGRESS, needs decision)
+## 6. CasaOS App Registration (Task 1.4 — Phase 1 Caddy decouple ✅, Phase 2 UI re-import ⏳)
 
 ### Current state
 - All 18 apps are **accessible via the domain** (ingress works).
@@ -161,29 +164,32 @@
   (they were recreated via `docker run`, bypassing CasaOS registration).
 - qbittorrent shows properly because its container has the `icon` label.
 
-### The architecture conflict
+### The architecture conflict (largely defused in Phase 1)
 - CasaOS installs apps on the **`bridge`** network (default).
-- The ingress (Caddy) currently reaches apps by **container name**, which requires
-  them to be on the **`web_proxy`** network.
-- If apps are re-imported via CasaOS (UI), they go back to `bridge` → Caddy can't
-  resolve them by name → 502s return. **This is the trap.**
+- Caddy now reaches 16/18 apps via **`host.docker.internal:<host_port>`** (network-agnostic),
+  NOT container name — so re-importing those to `bridge` no longer breaks ingress.
+- **Remaining trap (2 apps)**: `vaultwarden` (port 80 not host-published) and
+  `overseerr` (host port `5555→5555` but app listens on 5055) still use container-name routing.
+  After re-import, `docker network connect web_proxy <app>` must be run so Prowlarr→*arr
+  name resolution (and Caddy for those 2) keeps working.
 
-### Decision needed (recommend Option B)
-- **Option A — keep web_proxy + container names** (current, working): apps stay on
-  web_proxy, Caddy uses container names. CasaOS still shows "legacy" (cosmetic only;
-  apps fully work via domain). Lowest risk.
-- **Option B (RECOMMENDED) — Caddy uses `host.docker.internal:<host_port>`**:
-  network-agnostic. Apps can stay CasaOS-managed on `bridge`; Caddy reaches them via
-  host-published ports. Enables clean CasaOS re-import (proper icons + clickable URLs)
-  without breaking ingress. Requires mapping correct HOST ports:
-  - Most ARR/media: host port = container port (radarr 7878, sonarr 8989, etc.)
-  - overseerr: host **5555** (container 5055)
+### Decision (Option B chosen — Phase 1 executed 2026-07-27)
+- **Phase 1 ✅**: Caddy rewritten to `host.docker.internal:<host_port>` for 16/18 apps.
+  All 18 routes re-verified green after reload. Apps decoupled from `web_proxy` membership
+  for ingress purposes.
+- **Phase 2 (pending, manual)**: re-import apps via CasaOS UI for proper icons + clickable URLs.
+  For each re-imported app, run `docker network connect web_proxy <app>` to preserve
+  Prowlarr→*arr name resolution. Host port mapping used (verified):
+  - ARR/media: host = container port (radarr 7878, sonarr 8989, lidarr 8686, readarr 8787,
+    prowlarr 9696, bazarr 6767, jellyfin 8096, navidrome 4533, kavita 5000, mylar3 8090)
   - seerr: host **5056** (container 5055)
-  - qbittorrent: host **8181** (via gluetun)
-  - homeassistant: host **8123** (host network)
-  - esphome: host **6052** (host network)
-  - vaultwarden: needs port 80 published on host, OR keep on web_proxy + container name
-  - syncthing: host 8384
+  - hermes: host **9119** (NOT 8642 — 8642 is a dead mapping; app binds 9119)
+  - qbittorrent: host **8181** (via gluetun) — already on host.docker.internal
+  - homeassistant: host **8123** / esphome: host **6052** / syncthing: host **8384** — already on host.docker.internal
+  - **vaultwarden**: port 80 NOT host-published → stays container-name `vaultwarden:80` (cosmetic legacy in CasaOS)
+  - **overseerr**: host port published `5555→5555` but app listens on **5055** → `host.docker.internal:5555`
+    returns 000. Stays container-name `overseerr:5055` until its port map is fixed
+    (`-p 5555:5055`). Phase 2 should fix this to fully decouple.
 
 ### Vaultwarden URLs (user's explicit ask)
 - Each app's Vaultwarden entry should use `https://homelab.taild32764.ts.net/<app>`
