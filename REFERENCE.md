@@ -1,6 +1,6 @@
 # Homelab Reference — Operational Details
 
-**Last updated:** 2026-07-27  
+**Last updated:** 2026-07-30  
 **Source of truth:** this repo (synced Obsidian ↔ GitHub). Memory holds only pointers.
 
 ---
@@ -193,3 +193,10 @@
 ### Vaultwarden URLs (user's explicit ask)
 - Each app's Vaultwarden entry should use `https://homelab.taild32764.ts.net/<app>`
   (not LAN IP). Requires Vaultwarden API token (in user's Vault) to audit/update.
+
+## 2026-08-02 — Obsidian LiveSync (G2 sync decision → option B)
+- **Decision:** LiveSync (CouchDB) chosen for vault sync — resolves parked G2 (was: "Fix Syncthing / LiveSync / Both"). Picked B (LiveSync for Obsidian) over C: Syncthing container still broken (lost mounts).
+- **Deployed:** CouchDB 3.5.2 container `couchdb` on web_proxy, data at `/DATA/AppData/obsidian-livesync/data`; DB `obsidian-livesync`; Caddy root URI `https://homelab.taild32764.ts.net:10380/` (path `/livesync/` also routes, but plugin requires root URI for its wizard).
+- **Seeded:** via official `self-hosted-livesync-cli` (built from source, image `livesync-cli`, repo `/opt/data/livesync-src`): `mirror /DATA/Documents/Notes` → `sync`. 3,101 docs; decryption round-trip verified; `.livesync/ignore` excludes `.git/` + imports vault .gitignore (PAT, creds stay out).
+- **Creds:** `/opt/data/.secrets/couchdb_livesync` (admin pw + E2E passphrase); Setup URI at `.secrets/livesync_setup_uri.txt`.
+- **Pending:** Jon installs plugin on desktop+phone with the Setup URI (devices pull existing seed — no reset-remote needed). Vault git backup unchanged (durability net remains).

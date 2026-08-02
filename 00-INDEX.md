@@ -3,7 +3,7 @@
 **Status:** Planning Phase  
 **Created:** 2026-01-XX  
 **Owner:** Jon Ross  
-**Last Updated:** 2026-01-XX
+**Last Updated:** 2026-07-30
 
 ---
 
@@ -332,9 +332,9 @@ Tailscale → Caddy (web_proxy:8080) → App (web_proxy:<port>)
 homelab-architecture/
 ├── 00-INDEX.md (this file)
 ├── 01-ARCHITECTURE.md (detailed architecture)
-├── 02-NETWORK.md (network topology)
-├── 03-ROUTING.md (routing rules)
-├── 04-SECURITY.md (security model)
+├── 02-NETWORK.md (current live topology + gap analysis)
+├── 03-ROUTING.md (routing rules — TBD)
+├── 04-SECURITY.md (security posture + goal comparison) ✅
 ├── 05-IMPLEMENTATION.md (implementation details)
 ├── 06-OPERATIONS.md (runbooks, troubleshooting)
 ├── 07-IMPLEMENTATION-LOG-CASAOS-REIMPORT.md (Phase 2: CasaOS app re-import)
