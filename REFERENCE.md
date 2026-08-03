@@ -200,3 +200,11 @@
 - **Seeded:** via official `self-hosted-livesync-cli` (built from source, image `livesync-cli`, repo `/opt/data/livesync-src`): `mirror /DATA/Documents/Notes` → `sync`. 3,101 docs; decryption round-trip verified; `.livesync/ignore` excludes `.git/` + imports vault .gitignore (PAT, creds stay out).
 - **Creds:** `/opt/data/.secrets/couchdb_livesync` (admin pw + E2E passphrase); Setup URI at `.secrets/livesync_setup_uri.txt`.
 - **Pending:** Jon installs plugin on desktop+phone with the Setup URI (devices pull existing seed — no reset-remote needed). Vault git backup unchanged (durability net remains).
+
+## 2026-08-03 — Health Mission Control (InfluxDB + Grafana + HA embed)
+- **Deployed:** InfluxDB 2.7 (`influxdb`, web_proxy net, :8086, org homelab, bucket health, 52w retention) + Grafana 11 (`grafana`, :3000, anonymous read-only) as the personal health data stack. 645 dummy points seeded (14 days: vitals/sleep/nutrition/activity) through the real pipeline.
+- **HA:** new YAML dashboard `health-dashboard` registered (sidebar "Health") at `/lovelace/health-dashboard`; iframe embeds Grafana "Health — Mission Control" (kiosk, anon). Dashboard file `/config/dashboards/health.yaml`; data dirs `/DATA/AppData/influxdb`, volumes `grafana-data/-provisioning/-dashboards`.
+- **Data contract:** InfluxDB field names ARE the contract (vitals/sleep/nutrition/activity) — Samsung Health will write the same measurements via Health Connect → Google Fit → HA → InfluxDB; dashboard needs zero changes.
+- **Creds:** InfluxDB admin + token in container env + `/opt/data/.secrets/influx_token`; Grafana admin in container env; anonymous read-only for embeds.
+- **Pitfall recorded:** Grafana provisioning files need dirs 755 / files 644 / owner 472:472 (docker cp lands root; 644-on-dirs = unreadable).
+- **Pending:** Samsung Health hookup when Jon is home; BP path decision (Samsung walled-garden vs Omron/Withings cuff).
